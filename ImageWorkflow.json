@@ -1,0 +1,98 @@
+{
+  "19": {
+    "inputs": {
+      "model_name": "sam_vit_b_01ec64.pth",
+      "device_mode": "Prefer GPU"
+    },
+    "class_type": "SAMLoader",
+    "_meta": {
+      "title": "SAMLoader (Impact)"
+    }
+  },
+  "20": {
+    "inputs": {
+      "model_name": "GroundingDINO_SwinB (938MB)"
+    },
+    "class_type": "GroundingDinoModelLoader (segment anything)",
+    "_meta": {
+      "title": "GroundingDinoModelLoader (segment anything)"
+    }
+  },
+  "21": {
+    "inputs": {
+      "prompt": "pants",
+      "threshold": 0.3,
+      "sam_model": [
+        "19",
+        0
+      ],
+      "grounding_dino_model": [
+        "20",
+        0
+      ],
+      "image": [
+        "27",
+        0
+      ]
+    },
+    "class_type": "GroundingDinoSAMSegment (segment anything)",
+    "_meta": {
+      "title": "GroundingDinoSAMSegment (segment anything)"
+    }
+  },
+  "22": {
+    "inputs": {
+      "image": "966893250_01.webp"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "GarmentImageLoader"
+    }
+  },
+  "24": {
+    "inputs": {
+      "mask_grow": 24,
+      "mixed_precision": "fp16",
+      "seed": 203298230401417,
+      "steps": 35,
+      "cfg": 2.7,
+      "image": [
+        "27",
+        0
+      ],
+      "mask": [
+        "21",
+        1
+      ],
+      "refer_image": [
+        "22",
+        0
+      ]
+    },
+    "class_type": "CatVTONWrapper",
+    "_meta": {
+      "title": "CatVTON Wrapper"
+    }
+  },
+  "27": {
+    "inputs": {
+      "image": "rosiestyle2.jpg.webp"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "PersonImageLoader"
+    }
+  },
+  "30": {
+    "inputs": {
+      "images": [
+        "24",
+        0
+      ]
+    },
+    "class_type": "SaveImageWebsocket",
+    "_meta": {
+      "title": "SaveImageWebsocket"
+    }
+  }
+}
