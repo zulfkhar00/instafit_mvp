@@ -1,0 +1,30 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run Uvicorn",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cd internal/image_segmentator && uvicorn app:app --host 127.0.0.1 --port 8000 && sleep 5"
+            ],
+            "isBackground": true,
+            "problemMatcher": {
+                "pattern": [
+                    {
+                        "regexp": ".",
+                        "file": 1,
+                        "location": 2,
+                        "message": 3
+                    }
+                ],
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".*Uvicorn running on.*",
+                    "endsPattern": ".*Application startup complete.*"
+                }
+            }
+        }
+    ]
+}

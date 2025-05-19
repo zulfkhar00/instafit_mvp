@@ -12,17 +12,18 @@ import io # Import io for in-memory binary streams
 import zipfile # Import zipfile
 import uuid
 import json
+import time
 
 import torch
 import torch.nn.functional as F
 import torchvision.transforms as transforms
 
 from collections import OrderedDict
-from options import opt
+# from options import opt
 
 
 def load_checkpoint(model):
-    checkpoint_path = "/Users/zmaukey/Desktop/vton_mvp/internal/image_segmentator/model/cloth_segm.pth"
+    checkpoint_path = "/Users/zmaukey/Desktop/instafit_mvp/internal/image_segmentator/model/cloth_segm.pth"
     # checkpoint_path = "model/cloth_segm.pth"
     if not os.path.exists(checkpoint_path):
         print("----No checkpoints at given path----")
@@ -108,19 +109,12 @@ def apply_transform(img):
 
 
 def generate_mask(req_id, input_image, net, palette, device = 'cpu'):
-
     #img = Image.open(input_image).convert('RGB')
     img = input_image
     img_size = img.size
     img = img.resize((768, 768), Image.BICUBIC)
     image_tensor = apply_transform(img)
     image_tensor = torch.unsqueeze(image_tensor, 0)
-
-    # alpha_out_dir = os.path.join(opt.output,'alpha')
-    # cloth_seg_out_dir = os.path.join(opt.output,'cloth_seg')
-
-    # os.makedirs(alpha_out_dir, exist_ok=True)
-    # os.makedirs(cloth_seg_out_dir, exist_ok=True)
 
     with torch.no_grad():
         output_tensor = net(image_tensor.to(device))
@@ -160,25 +154,6 @@ def generate_mask(req_id, input_image, net, palette, device = 'cpu'):
     return encoded_images
 
 
-    # Save final cloth segmentations
-    # binary_mask = (output_arr[0] != 0).astype(np.uint8) * 255
-    # binary_mask_img = Image.fromarray(binary_mask, mode='L')
-    # binary_mask_img = binary_mask_img.resize(img_size, Image.BICUBIC)
-
-    # Convert mask and original image to compatible arrays
-    # binary_mask_np = np.array(binary_mask_img)
-    # img_np = np.array(input_image)
-
-    # Apply mask to input image
-    # segmented_img_np = cv2.bitwise_and(img_np, img_np, mask=binary_mask_np)
-
-    # Save the segmented image
-    # segmented_img = Image.fromarray(segmented_img_np)
-    # segmented_img.save(os.path.join(cloth_seg_out_dir, 'final_seg.png'))
-
-    # return segmented_img
-
-
 
 def check_or_download_model(file_path):
     if not os.path.exists(file_path):
@@ -201,20 +176,28 @@ def load_seg_model(device='cpu'):
 
 
 def main(args):
-
-    device = 'cuda:0' if args.cuda else 'cpu'
+    start = time.time()
+    device = 'cuda' if args.cuda else 'cpu'
 
     # Create an instance of your model
     model = load_seg_model(device=device)
 
     palette = get_palette(4)
 
-    img = Image.open(args.image).convert('RGB')
+    # Read image bytes directly from stdin
+    image_bytes = sys.stdin.buffer.read()
+    try:
+        img = Image.open(io.BytesIO(image_bytes)).convert('RGB')
+    except Exception as e:
+        sys.stderr.write(f"Error reading image from stdin: {e}\n")
+        sys.exit(1)
+
     unique_id = str(uuid.uuid4())
     encoded_clothing_parts = generate_mask(unique_id, img, net=model, palette=palette, device=device)
 
     if not encoded_clothing_parts:
         sys.stderr.write("Warning: No clothing parts were segmented.\n")
+
     # --- Create an in-memory ZIP archive ---
     zip_buffer = io.BytesIO()
     try:
@@ -233,6 +216,8 @@ def main(args):
         sys.stdout.buffer.write(zip_buffer.getvalue())
         sys.stdout.buffer.flush()
         sys.stderr.write("Zip archive written to stdout.\n") # Log success to stderr
+        execution_time = time.time() - start
+        sys.stderr.write(f"[process] Execution time: {execution_time:.4f} seconds\n")
         sys.exit(0) # Exit successfully
     except Exception as e:
         sys.stderr.write(f"Error writing zip archive to stdout: {e}\n")
@@ -241,7 +226,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Help to set arguments for Cloth Segmentation.')
-    parser.add_argument('--image', type=str, help='Path to the input image')
+    # parser.add_argument('--image', type=str, help='Path to the input image')
     parser.add_argument('--cuda', action='store_true', help='Enable CUDA (default: False)')
     args = parser.parse_args()
 

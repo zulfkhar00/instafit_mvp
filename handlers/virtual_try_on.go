@@ -17,7 +17,7 @@ import (
 
 const (
 	ComfyUIAPIURL = "http://127.0.0.1:8188/api"
-	TempDir       = "/Users/zmaukey/Desktop/vton_mvp/temp_files"
+	TempDir       = "/Users/zmaukey/Desktop/instafit_mvp/temp_files"
 	WorkflowPath  = "./ImageWorkflow.json"
 )
 

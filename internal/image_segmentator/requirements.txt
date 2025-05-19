@@ -1,4 +1,6 @@
 torch
+fastapi
+uvicorn
 torchvision
 gdown
 Pillow

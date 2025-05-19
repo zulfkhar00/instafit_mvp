@@ -6,9 +6,6 @@ from sklearn.cluster import KMeans
 from colormath.color_objects import sRGBColor, LabColor
 from colormath.color_conversions import convert_color
 from matplotlib import colors as mcolors
-import time
-
-start_time = time.time()
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model, preprocess = clip.load("ViT-B/32", device=device)
@@ -107,10 +104,6 @@ def get_metadata(img: Image.Image) -> dict[str, list[str]]:
     # 10. Clothing length
     lengths = ["crop length", "waist length", "hip length", "knee length"]
     clothing_length = classify(img, lengths)
-
-    end_time = time.time()
-    execution_time = end_time - start_time
-    print(f"Execution time: {execution_time:.4f} seconds")
 
     return {
         "seasons": season,

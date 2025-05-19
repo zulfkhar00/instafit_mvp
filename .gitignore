@@ -23,3 +23,15 @@ go.work.sum
 
 # env file
 .env
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+
+temp_files/
