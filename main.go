@@ -10,8 +10,7 @@ import (
 )
 
 const (
-	ServerPort  = "8080"
-	ComfyUIPath = "/Users/zmaukey/ComfyUI"
+	ServerPort = "8080"
 )
 
 func main() {

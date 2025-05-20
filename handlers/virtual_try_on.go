@@ -17,8 +17,11 @@ import (
 
 const (
 	ComfyUIAPIURL = "http://127.0.0.1:8188/api"
-	TempDir       = "/Users/zmaukey/Desktop/instafit_mvp/temp_files"
 	WorkflowPath  = "./ImageWorkflow.json"
+)
+
+var (
+	TempDir = getTempDir()
 )
 
 // Handler for virtual try-on endpoint
@@ -144,4 +147,12 @@ func VirtualTryOnHandler(ctx context.Context, c *app.RequestContext) {
 	// Clean up temp files
 	os.Remove(personPath)
 	os.Remove(garmentPath)
+}
+
+func getTempDir() string {
+	wd, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+	return filepath.Join(wd, "temp_files")
 }

@@ -6,9 +6,11 @@ from sklearn.cluster import KMeans
 from colormath.color_objects import sRGBColor, LabColor
 from colormath.color_conversions import convert_color
 from matplotlib import colors as mcolors
+import os
 
-onnx_model_path = "/Users/zmaukey/Desktop/instafit_mvp/internal/image_segmentator/fashion-clip/onnx/model.onnx"
-processor_path = "/Users/zmaukey/Desktop/instafit_mvp/internal/image_segmentator/fashion-clip"
+current_dir = os.path.dirname(os.path.abspath(__file__))
+onnx_model_path = os.path.join(current_dir, "fashion-clip", "onnx", "model.onnx")
+processor_path = os.path.join(current_dir, "fashion-clip")
 COLOR_NAMES = dict(mcolors.CSS4_COLORS, **mcolors.XKCD_COLORS)
 
 session = ort.InferenceSession(onnx_model_path)

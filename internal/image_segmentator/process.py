@@ -23,7 +23,9 @@ from collections import OrderedDict
 
 
 def load_checkpoint(model):
-    checkpoint_path = "/Users/zmaukey/Desktop/instafit_mvp/internal/image_segmentator/model/cloth_segm.pth"
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    # onnx_model_path = os.path.join(current_dir, "fashion-clip", "onnx", "model.onnx")
+    checkpoint_path = os.path.join(current_dir, "model", "cloth_segm.pth")
     # checkpoint_path = "model/cloth_segm.pth"
     if not os.path.exists(checkpoint_path):
         print("----No checkpoints at given path----")
