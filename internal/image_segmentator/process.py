@@ -144,7 +144,6 @@ def generate_mask(req_id, input_image, net, palette, device = 'cpu'):
 
         masked_img = Image.fromarray(masked_img_np)
         metadata = get_metadata(masked_img)
-        # masked_img.save(os.path.join(alpha_out_dir, f'masked_class_{cls}.png'))
 
         img_byte_arr = io.BytesIO()
         masked_img.save(img_byte_arr, format='JPEG', quality=90)

@@ -1,5 +1,5 @@
-import torch
-import clip
+import onnxruntime as ort
+from transformers import CLIPProcessor
 from PIL import Image
 import numpy as np
 from sklearn.cluster import KMeans
@@ -7,20 +7,27 @@ from colormath.color_objects import sRGBColor, LabColor
 from colormath.color_conversions import convert_color
 from matplotlib import colors as mcolors
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
-model, preprocess = clip.load("ViT-B/32", device=device)
+onnx_model_path = "/Users/zmaukey/Desktop/instafit_mvp/internal/image_segmentator/fashion-clip/onnx/model.onnx"
+processor_path = "/Users/zmaukey/Desktop/instafit_mvp/internal/image_segmentator/fashion-clip"
 COLOR_NAMES = dict(mcolors.CSS4_COLORS, **mcolors.XKCD_COLORS)
 
-def classify(img: Image.Image, labels, threshold=0.2):
-    image = preprocess(img).unsqueeze(0).to(device)
-    text = clip.tokenize(labels).to(device)
+session = ort.InferenceSession(onnx_model_path)
+processor = CLIPProcessor.from_pretrained(processor_path, use_fast=False)
 
-    with torch.no_grad():
-        logits, _ = model(image, text)
-        probs = logits.softmax(dim=-1).cpu().numpy()[0]
+def classify(img: Image.Image, labels, threshold=0.5):
+    inputs = processor(text=labels, images=img, return_tensors="np", padding=True)
+
+    onnx_inputs = {
+        "input_ids": inputs["input_ids"],
+        "attention_mask": inputs["attention_mask"],
+        "pixel_values": inputs["pixel_values"]
+    }
+
+    logits = session.run(None, onnx_inputs)[0]
+    probs = np.exp(logits) / np.sum(np.exp(logits), axis=1, keepdims=True)
+    probs = probs[0]
 
     return [label for label, prob in zip(labels, probs) if prob >= threshold]
-    # return {label: float(prob) for label, prob in zip(labels, probs) if prob >= threshold}
 
 def closest_color_lab(hex_color):
     requested_rgb = np.array(mcolors.to_rgb(hex_color)) * 255
@@ -65,55 +72,28 @@ def detect_colors(img: Image.Image, num_colors=3, alpha_threshold=200):
         res.append(closest_color_lab(hex_color))
     return res
 
+
 def get_metadata(img: Image.Image) -> dict[str, list[str]]:
-    # 1. Season classification
-    seasons = ["spring", "summer", "fall", "winter"]
-    season = classify(img, seasons)
+    season = classify(img, ["spring", "summer", "fall", "winter"])
+    occasion = classify(img, ["daily", "work", "date", "formal", "travel", "home", "party", "sport", "special", "school", "beach"])
+    category = classify(img, ["tops", "bottoms"])
 
-    # 2. Occasion classification
-    occasions = ["daily", "work", "date", "formal", "travel", "home", "party", "sport", "special", "school", "beach"]
-    occasion = classify(img, occasions)
+    tops_types = ["t-shirt", "long-sleeve t-shirt", "sleeveless t-shirt", "polo shirt", "tanks & camis", "crop tops", "blouses", "shirts", "sweatshirts", "hoodies", "sweaters", "sweater vests", "cardigan tops", "sports tops", "bodysuits"]
+    bottoms_types = ["jeans", "trousers", "pants", "shorts", "skirts", "leggings", "joggers", "sweatpants", "chinos", "cargo pants", "culottes", "capris", "maxi skirt", "mini skirt", "midi skirt", "athletic shorts", "denim shorts", "formal pants", "track pants", "bike shorts"]
 
-    # 3. Clothing category
-    categories = ["tops", "bottoms"]
-    category = classify(img, categories)
-
-    # 4. Clothing type
-    types = ["t-shirt", "long-sleeve t-shirt", "sleeveless t-shirt", "polo shirt", "tanks & camis", "crop tops", "blouses", "shirts", "sweatshirts", "hoodies", "sweaters", "sweater vests", "cardigan tops", "sports tops", "bodysuits"]
-    clothing_type = classify(img, types)
-
-    # 5. Clothing colors
+    clothing_type = classify(img, tops_types if "tops" in category else bottoms_types)
     colors = detect_colors(img)
+    style = classify(img, ["casual", "comfortable", "business casual", "formal", "modern", "classic", "minimalist", "bohemian", "luxury", "sporty", "athleisure", "affordable", "trendy", "premium", "kidcore", "basic", "artistic", "dress-up", "hipster", "feminine", "chic", "street"])
+    fit = classify(img, ["slim", "regular", "loose", "oversized"])
 
-    # 6. Clothing style
-    styles = ["casual", "comfortable", "business casual", "formal", "modern", "classic", "minimalist", "bohemian", "luxury", "sporty", "athleisure", "affordable", "trendy", "premium", "kidcore", "basic", "artistic", "dress-up", "hipster", "feminine", "chic", "street"]
-    style = classify(img, styles)
+    res = {"seasons": season, "occasions": occasion, "categories": category, "types": clothing_type, "colors": colors, "styles": style, "fits": fit}
 
-    # 7. Clothing fit
-    fits = ["slim", "regular", "loose", "oversized"]
-    fit = classify(img, fits)
+    if "tops" in category:
+        res["necklines"] = classify(img, ["round neckline", "v-neck neckline", "turtleneck neckline"])
+        res["sleeves"] = classify(img, ["sleeveless", "short sleeve", "long sleeve"])
+        res["clothing_lengths"] = classify(img, ["short", "regular", "long"])
+    else:
+        res["waist_styles"] = classify(img, ["high-waisted", "mid-rise", "low-rise"])
+        res["clothing_lengths"] = classify(img, ["short", "knee-length", "midi", "ankle-length", "full-length"])
 
-    # 8. Neckline classification
-    necklines = ["round neckline", "scoop neckline", "boat neckline", "v-neck neckline", "deep-v neckline", "square neckline", "surplice neckline", "shirts-collar neckline", "standup-collar neckline", "wide-collar neckline", "mockneck neckline", "turtleneck neckline", "strapless neckline", "thick-strap neckline", "thin-strap neckline", "sweetheart neckline", "off-the-shoulder neckline", "asymmetric neckline", "halter neckline", "illusion neckline", "keyhole neckline", "suit-collar neckline"]
-    neckline = classify(img, necklines)
-
-    # 9. Sleeve length classification
-    sleeves = ["sleeveless", "cap sleeve", "short sleeve", "3/4 sleeve", "long sleeve"]
-    sleeve = classify(img, sleeves)
-
-    # 10. Clothing length
-    lengths = ["crop length", "waist length", "hip length", "knee length"]
-    clothing_length = classify(img, lengths)
-
-    return {
-        "seasons": season,
-        "occasions": occasion,
-        "categories": category,
-        "types": clothing_type,
-        "colors": colors,
-        "styles": style,
-        "fits": fit,
-        "necklines": neckline,
-        "sleeves": sleeve,
-        "lengths": clothing_length,
-    }
+    return res
