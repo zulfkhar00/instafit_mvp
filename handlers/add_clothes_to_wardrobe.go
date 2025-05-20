@@ -2,22 +2,41 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
-	"os"
-	"path/filepath"
 	"sync"
 
 	"github.com/zulfkhar00/instafit_mvp/internal"
+	"github.com/zulfkhar00/instafit_mvp/services/storage"
 
 	"github.com/cloudwego/hertz/pkg/app"
 )
 
+type ClothesHandler struct {
+	Storage storage.StorageService
+}
+
 // Handler for adding clothes to wardrobe endpoint
-func AddClothesToWardrobeHandler(ctx context.Context, c *app.RequestContext) {
+func (h *ClothesHandler) AddClothesToWardrobeHandler(ctx context.Context, c *app.RequestContext) {
+	userIdVal, exists := c.Get("userId")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, map[string]interface{}{
+			"success": false,
+			"error":   "user ID missing from context",
+		})
+		return
+	}
+	userId, ok := userIdVal.(string)
+	if !ok || userId == "" {
+		c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			"success": false,
+			"error":   "invalid user ID format in context",
+		})
+		return
+	}
+
 	// Get files from form data
 	form, err := c.MultipartForm()
 	if err != nil {
@@ -35,7 +54,12 @@ func AddClothesToWardrobeHandler(ctx context.Context, c *app.RequestContext) {
 	}
 
 	var wg sync.WaitGroup
-	resultCh := make(chan int, len(clothFiles))
+	type UploadedResult struct {
+		ImageURL   string                 `json:"image_url"`
+		ClothingID string                 `json:"clothing_id"`
+		Metadata   map[string]interface{} `json:"metadata"`
+	}
+	resultCh := make(chan UploadedResult, len(clothFiles)*5)
 	errorCh := make(chan error, len(clothFiles))
 
 	for fileIdx, file := range clothFiles {
@@ -63,32 +87,26 @@ func AddClothesToWardrobeHandler(ctx context.Context, c *app.RequestContext) {
 				errorCh <- fmt.Errorf("segmentation failed for file %d: %v", imageFileIdx, err)
 				return
 			}
-			fmt.Printf("Segmented %d images for file %d", len(segmentedImages), imageFileIdx)
 			if len(segmentedImages) == 0 {
 				errorCh <- fmt.Errorf("no segmented images returned for file %d", imageFileIdx)
 				return
 			}
 
 			for i, segmentedImg := range segmentedImages {
-				imagePath := filepath.Join(TempDir, fmt.Sprintf("file_%d_%d.jpg", imageFileIdx, i))
-				metadataPath := filepath.Join(TempDir, fmt.Sprintf("file_%d_%d.json", imageFileIdx, i))
-				if err := os.WriteFile(imagePath, segmentedImg.Image, 0644); err != nil {
-					errorCh <- fmt.Errorf("failed to write image file %d_%d: %v", imageFileIdx, i, err)
-					return
-				}
-				// Convert metadata to JSON
-				metadataJSON, err := json.MarshalIndent(segmentedImg.Metadata, "", "  ")
+				filename := fmt.Sprintf("wardrobe/%s/%s.jpg", userId, segmentedImg.ID)
+				contentType := "image/jpeg"
+				url, err := h.Storage.UploadBlob(ctx, segmentedImg.Image, filename, contentType)
 				if err != nil {
-					errorCh <- fmt.Errorf("failed to marshal metadata %d_%d: %v", imageFileIdx, i, err)
+					errorCh <- fmt.Errorf("failed to upload segmented image %d_%d: %v", imageFileIdx, i, err)
 					return
 				}
-				// Write metadata file
-				if err := os.WriteFile(metadataPath, metadataJSON, 0644); err != nil {
-					errorCh <- fmt.Errorf("failed to write metadata file %d_%d: %v", imageFileIdx, i, err)
-					return
+
+				resultCh <- UploadedResult{
+					ImageURL:   url,
+					ClothingID: segmentedImg.ID,
+					Metadata:   segmentedImg.Metadata,
 				}
 			}
-			resultCh <- len(segmentedImages)
 		}(fileIdx, file)
 	}
 
@@ -99,10 +117,10 @@ func AddClothesToWardrobeHandler(ctx context.Context, c *app.RequestContext) {
 		close(errorCh)
 	}()
 
-	// Collect results and check for errors
-	totalProcessed := 0
-	for count := range resultCh {
-		totalProcessed += count
+	// Collect uploaded results
+	var uploadedItems []UploadedResult
+	for result := range resultCh {
+		uploadedItems = append(uploadedItems, result)
 	}
 
 	// Collect errors explicitly
@@ -121,9 +139,11 @@ func AddClothesToWardrobeHandler(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
+	// TODO: insert `uploadedItems` into DB
+
 	c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
-		"count":   totalProcessed,
+		"clothes": uploadedItems,
 	})
 
 }

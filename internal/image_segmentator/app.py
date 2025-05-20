@@ -39,8 +39,6 @@ async def segment_clothes(file: UploadFile = File(...)):
         if not encoded_parts:
             raise ValueError("Segmentation returned no results")
 
-        print(f"Processed request {req_id}, generated {len(encoded_parts)} parts.")
-
         result = []
         for filename, image_data, metadata in encoded_parts:
             encoded_image = base64.b64encode(image_data).decode('utf-8')

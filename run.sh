@@ -6,6 +6,7 @@ set -e # Exit early if any commands fail
 )
 
 chmod +x /tmp/instafit_mvp
+export APP_ENV=dev
 
 # Run Python FastAPI server in the background
 (

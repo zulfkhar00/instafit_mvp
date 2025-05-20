@@ -8,10 +8,13 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+
+	"github.com/google/uuid"
 )
 
 type SegmentedImage struct {
 	Image    []byte                 `json:"image"`
+	ID       string                 `json:"id"`
 	Metadata map[string]interface{} `json:"metadata"`
 }
 
@@ -73,6 +76,7 @@ func Segment_clothes(inputImage []byte) ([]SegmentedImage, error) {
 		}
 		results = append(results, SegmentedImage{
 			Image:    imgBytes,
+			ID:       uuid.NewString(),
 			Metadata: item.Metadata,
 		})
 	}

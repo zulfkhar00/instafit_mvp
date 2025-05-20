@@ -7,7 +7,7 @@
             "command": "bash",
             "args": [
                 "-c",
-                "cd internal/image_segmentator && uvicorn app:app --host 127.0.0.1 --port 8000 && sleep 5"
+                "cd internal/image_segmentator && uvicorn app:app --host 127.0.0.1 --port 8000"
             ],
             "isBackground": true,
             "problemMatcher": {
