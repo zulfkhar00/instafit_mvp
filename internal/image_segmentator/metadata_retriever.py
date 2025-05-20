@@ -72,7 +72,7 @@ def detect_colors(img: Image.Image, num_colors=3, alpha_threshold=200):
         r, g, b = color
         hex_color = f'#{r:02x}{g:02x}{b:02x}'
         res.append(closest_color_lab(hex_color))
-    return res
+    return list(set(res))
 
 
 def get_metadata(img: Image.Image) -> dict[str, list[str]]:

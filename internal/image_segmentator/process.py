@@ -113,16 +113,16 @@ def apply_transform(img):
 def generate_mask(req_id, input_image, net, palette, device = 'cpu'):
     #img = Image.open(input_image).convert('RGB')
     img = input_image
-    img_size = img.size
-    img = img.resize((768, 768), Image.BICUBIC)
-    image_tensor = apply_transform(img)
+    original_size = img.size
+    resized_img = img.resize((768, 768), Image.BICUBIC)
+    image_tensor = apply_transform(resized_img)
     image_tensor = torch.unsqueeze(image_tensor, 0)
 
     with torch.no_grad():
         output_tensor = net(image_tensor.to(device))
         output_tensor = F.log_softmax(output_tensor[0], dim=1)
-        output_tensor = torch.max(output_tensor, dim=1, keepdim=True)[1]
-        output_tensor = torch.squeeze(output_tensor, dim=0)
+        output_tensor = torch.max(output_tensor, dim=1)[1]  # shape: [1, H, W]
+        output_tensor = output_tensor.squeeze(0)            # shape: [H, W]
         output_arr = output_tensor.cpu().numpy()
 
     classes_to_save = []
@@ -138,18 +138,23 @@ def generate_mask(req_id, input_image, net, palette, device = 'cpu'):
 
     for cls in classes_to_save:
         alpha_mask = (output_arr == cls).astype(np.uint8) * 255
-        alpha_mask = alpha_mask[0]  # make it 2D
-        alpha_mask_img = Image.fromarray(alpha_mask, mode='L').resize(img_size, Image.BICUBIC)
+        alpha_mask_img = Image.fromarray(alpha_mask, mode='L').resize(original_size, Image.BICUBIC)
 
-        alpha_mask_np = np.array(alpha_mask_img)
-        masked_img_np = cv2.bitwise_and(img_np, img_np, mask=alpha_mask_np)
+        # Create RGBA masked image with transparency
+        img_rgba = img.resize(original_size, Image.BICUBIC).convert('RGBA')
+        img_np = np.array(img_rgba)
+        img_np[:, :, 3] = np.array(alpha_mask_img)
 
-        masked_img = Image.fromarray(masked_img_np)
+        masked_img = Image.fromarray(img_np, mode='RGBA')
+
+        # Generate metadata
         metadata = get_metadata(masked_img)
 
+        # Save image to bytes
         img_byte_arr = io.BytesIO()
-        masked_img.save(img_byte_arr, format='JPEG', quality=90)
+        masked_img.save(img_byte_arr, format='PNG')
         image_bytes = img_byte_arr.getvalue()
+
         encoded_images.append((f'clothing_{cls}_{req_id}.png', image_bytes, metadata))
 
     return encoded_images
