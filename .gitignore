@@ -35,3 +35,5 @@ venv.bak/
 __pycache__/
 
 temp_files/
+internal/image_segmentator/assets/
+internal/image_segmentator/input/
